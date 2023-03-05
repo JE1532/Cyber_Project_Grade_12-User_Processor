@@ -38,7 +38,7 @@ class UserProcessor:
 
 
     def process_request(self, request_and_sock):
-        request, sock = request_and_sock
+        request, sock, uname_hash = request_and_sock
         request_type, arguments = request.split('?')
         self.request_dict[request_type](sock, [equation.split('=')[1] for equation in arguments.split('&')])
 
