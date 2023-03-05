@@ -20,7 +20,7 @@ AUTH_OKAY = '200'
 
 
 class UserProcessor:
-    def __init__(self, database_file, task_queue, send_queue, socket_to_uname_hash_map, hash_func):
+    def __init__(self, database_file, task_queue, send_queue, socket_to_uname_hash_map, hash_func, socket_let_go):
         self.task_queue = task_queue
         self.request_dict = {LOG_NEW_USER : self.log_new_user, LOG_RETURNING_USER : self.log_returning_user}
         self.socket_to_uname_hash_map = socket_to_uname_hash_map
@@ -29,6 +29,7 @@ class UserProcessor:
         self.crsr.execute(CREATE_USER_TABLE)
         self.hash_func = hash_func
         self.send_queue = send_queue
+        self.socket_let_go = socket_let_go
         self.start()
 
 
@@ -38,7 +39,7 @@ class UserProcessor:
 
 
     def process_request(self, request_and_sock):
-        request, sock, uname_hash = request_and_sock
+        request, sock = request_and_sock
         request_type, arguments = request.split('?')
         self.request_dict[request_type](sock, [equation.split('=')[1] for equation in arguments.split('&')])
 
@@ -50,7 +51,7 @@ class UserProcessor:
             return
         password_hash = self.hash_func(arguments[1]).hexdigest()
         self.crsr.execute(INSERT('users', str.format('{},{},{}', uname_hash, password_hash, arguments[2])))
-        self.socket_to_uname_hash_map[uname_hash] = sock
+        self.socket_let_go(sock)
         self.send_queue.put((AUTH_OKAY, sock))
 
 
@@ -59,5 +60,5 @@ class UserProcessor:
         if not self.crsr.execute(SELECT('users', 'password_hash', str.format('username_hash = {}', uname_hash))):
             self.send_queue.put((WRONG_PASSWORD, sock))
             return
-        self.socket_to_uname_hash_map[uname_hash] = sock
+        self.socket_let_go(sock)
         self.send_queue.put((AUTH_OKAY, sock))
